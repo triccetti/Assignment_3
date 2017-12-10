@@ -38,12 +38,12 @@ public class MainGUI extends Application {
     /**
      * The scenes height.
      */
-    private static final int HEIGHT = 800;
+    private static final int HEIGHT = 400;
 
     /**
      * The scenes width.
      */
-    private static final int WIDTH = 600;
+    private static final int WIDTH = 1000;
 
     private final int ROW_HEIGHT = 24;
 
@@ -60,6 +60,8 @@ public class MainGUI extends Application {
 
     private StoryGenerator storyGen;
 
+    private Button trainText;
+
     public static void main(String[] args) {
         launch(args);
     }
@@ -71,6 +73,8 @@ public class MainGUI extends Application {
         stage = primaryStage;
         stage.setTitle("Story Generator!");
         stage.setScene(new Scene(setup(), WIDTH, HEIGHT));
+        stage.sizeToScene();
+        stage.setResizable(false);
         stage.show();
     }
 
@@ -81,26 +85,27 @@ public class MainGUI extends Application {
      */
     private Pane setup() {
         FlowPane startPane = new FlowPane();
-        startPane.setPadding(new Insets(ROW_HEIGHT));
         startPane.setOrientation(Orientation.VERTICAL);
         startPane.setAlignment(Pos.TOP_CENTER);
         listView = new ListView(data);
 
         Button addTrainingText = new Button("Upload Text");
         listView.setPrefHeight(1);
-
-        Button trainText = new Button("Train");
+        listView.setPrefWidth(HEIGHT);
+        trainText = new Button("Train");
 
         addTrainingText.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent e) {
                 List<Text> t = getTrainingFile();
-                trainText.setDisable(false);
                 if (t != null) {
-                    for(Text text : t) {
+                    for (Text text : t) {
                         data.add(text);
                     }
                     listView.setPrefHeight(data.size() * ROW_HEIGHT);
+                    trainText.setText("Train");
+                    trainText.setDisable(false);
+
                 }
             }
         });
@@ -123,20 +128,22 @@ public class MainGUI extends Application {
 
         Text message = new Text();
 
-        Task<Void> longRunningTask = new Task<Void>() {
+        Runnable longRunningTask = new Runnable() {
             @Override
-            protected Void call() throws Exception {
+            public void run()  {
 
                 long startTime = System.currentTimeMillis();
                 storyGen.loadFiles(filesToTrain);
                 storyGen.train();
                 long endTime = System.currentTimeMillis();
 
-                long duration = (endTime - startTime) / 1000L;
-                message.setText(message.getText() + " It took " + duration + " seconds to train the Story Generator.");
+                long duration = (endTime - startTime);
+                message.setText(message.getText() + " It took " + duration + " milliseconds to train the Story Generator.");
 
-                Platform.runLater(() -> trainText.setText("Train Complete"));
-                return null;
+                Platform.runLater(() -> {
+                    trainText.setText("Train Complete");
+                    trainText.setDisable(true);
+                });
             }
         };
 
@@ -144,7 +151,7 @@ public class MainGUI extends Application {
         TextArea storyResults = new TextArea();
         storyResults.setEditable(false);
         storyResults.setWrapText(true);
-        storyResults.setPrefHeight(ROW_HEIGHT * 15);
+        storyResults.setPrefHeight(ROW_HEIGHT * 10);
         ScrollPane sp = new ScrollPane();
         sp.setContent(storyResults);
         sp.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
@@ -158,7 +165,6 @@ public class MainGUI extends Application {
                 message.setText("Started training at " + now);
                 trainText.setDisable(true);
                 new Thread(longRunningTask).start();
-
             }
         });
 
@@ -189,7 +195,7 @@ public class MainGUI extends Application {
                 fileChooser.setInitialDirectory(workingDirectory);
                 fileChooser.setTitle("Save your story.");
                 File fileToSave = fileChooser.showSaveDialog(stage);
-                if(fileToSave != null) {
+                if (fileToSave != null) {
                     try {
                         Files.write(fileToSave.toPath(), story.getBytes());
                     } catch (Exception err) {
@@ -201,7 +207,22 @@ public class MainGUI extends Application {
 
             }
         });
+
         saveStory.setAlignment(Pos.CENTER);
+
+        GridPane genButtons = new GridPane();
+        genButtons.setPadding(new Insets(ROW_HEIGHT));
+        genButtons.setHgap(10);
+        genButtons.add(new Label("Number of words in the story: "), 0, 0);
+        genButtons.add(wordsInStory, 1, 0);
+        genButtons.add(generateStory, 2, 0);
+
+        GridPane story = new GridPane();
+        story.add(genButtons, 0, 0);
+        story.add(storyResults, 0, 1);
+        story.add(saveStory, 0, 2);
+        story.setPadding(new Insets(0, ROW_HEIGHT, 0, ROW_HEIGHT));
+        story.setHgap(10);
 
         GridPane trainButtons = new GridPane();
         trainButtons.setPadding(new Insets(ROW_HEIGHT));
@@ -211,21 +232,24 @@ public class MainGUI extends Application {
         trainButtons.add(addTrainingText, 0, 0);
         trainButtons.add(trainText, 1, 0);
 
-        GridPane genButtons = new GridPane();
-        genButtons.setPadding(new Insets(ROW_HEIGHT));
-        genButtons.setHgap(10);
-        genButtons.add(new Label("Number of words in the story: "), 0, 0);
-        genButtons.add(wordsInStory, 1, 0);
-        genButtons.add(generateStory, 2, 0);
-        startPane.getChildren().addAll(listView, new Text("Click file to delete."), trainButtons, message,
-                genButtons, storyResults, saveStory);
+        FlowPane listHolder = new FlowPane();
+
+        listHolder.setPadding(new Insets(ROW_HEIGHT));
+        listHolder.setOrientation(Orientation.VERTICAL);
+        listHolder.setAlignment(Pos.TOP_CENTER);
+        listView.minWidth(HEIGHT);
+        listHolder.getChildren().addAll(listView, new Text("Click file to delete."), trainButtons, message);
 
 
+        startPane.getChildren().addAll(listHolder, story);
+
+        startPane.autosize();
+        stage.sizeToScene();
         return startPane;
     }
 
 
-    public  List<Text> getTrainingFile() {
+    public List<Text> getTrainingFile() {
         File workingDirectory = new File(System.getProperty("user.dir"));
         FileChooser fileChooser = new FileChooser();
         fileChooser.setInitialDirectory(workingDirectory);
@@ -247,7 +271,8 @@ public class MainGUI extends Application {
                         data.remove(fileToTrainWith);
                         filesToTrain.remove(selectedFile);
                         listView.setPrefHeight(data.size() * ROW_HEIGHT);
-
+                        trainText.setDisable(false);
+                        trainText.setText("Train");
                     }
                 });
 

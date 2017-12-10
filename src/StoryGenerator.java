@@ -9,7 +9,7 @@ import java.util.*;
  *
  * TCSS 435 - AI
  * Programming assignment 3
- * 
+ *
  * @Author Taylor Riccetti
  */
 public class StoryGenerator {
